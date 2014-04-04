@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import csv
+import itertools
 import pandas as pd
 import matplotlib.pyplot as plt
 import xlsxwriter
@@ -107,24 +108,34 @@ def save_to_xls(dist, patterns, s_val, n_chart):
     # Insert the chart into the worksheet (with an offset).
     worksheet.insert_chart('D2', chart1, {'x_offset': 25, 'y_offset': 10})    
 
-def match_patterns(items, p_sets):
+def match_patterns(items, p_sets, p_scores):
     s = pd.Series(items)
     s = s[s < 1.0]
-    s = s[s >= 0.85]
-    s.sort(kind='mergesort', ascending=True)
-    print("Printing top 5 transactions:")    
+    s = s[s >= 0.9]
+    if len(s) == 0:
+        print("Zero elements! Nothing to display...")
+        return False
+    s.sort(kind='mergesort', ascending=False)
+    print("Printing top 10 transactions:")    
     for i in range(10):
         curr_set = set(s.index[i].replace("'", "").replace(" ", "").split(","))
         print(curr_set, s[i])
         print('-------------------------')
         jaccards = {}
-        for p_set in p_sets:
+        supports = {}
+        for p_set, p_score in itertools.zip_longest(p_sets, p_scores):
             inner_set = curr_set.intersection(p_set)
             curr_jaccard = float(len(inner_set)) / (len(curr_set) + len(p_set) - len(inner_set))
-            jaccards[p_set.__str__().strip('{}')] = curr_jaccard
-        patterns = pd.Series(jaccards)
-        patterns.sort(kind='quicksort', ascending=False)
-        print(patterns[0:5])
+            if curr_jaccard > 0:            
+                jaccards[p_set.__str__().strip('{}')] = curr_jaccard
+                supports[p_set.__str__().strip('{}')] = p_score
+        data = {'jaccard': jaccards, 'support' : supports}
+#        patterns = pd.Series(jaccards)
+#        patterns.sort(kind='quicksort', ascending=False)
+#        print(patterns[0:5])
+        df = pd.DataFrame(data)
+        df.sort('jaccard', ascending=False, inplace=True)
+        print(df[:][0:10])
         print('=========================')
     
 def do_all(s_val, n_chart):
@@ -136,16 +147,16 @@ def do_all(s_val, n_chart):
     run(s_val)
     indexfile = os.path.join(DATADIR, INDEXFILE)
     transfile = os.path.join(DATADIR, TRANSFILE)
-    p = patterns_as_sets(indexfile)
-    j, items = calc_jaccard(transfile, p)
+    p_sets, p_scores = patterns_as_sets(indexfile)
+    j, items = calc_jaccard(transfile, p_sets)
     d = calc_distr(j)
-    save_to_xls(d, len(p), s_val, n_chart)
-    match_patterns(items, p)
+    save_to_xls(d, len(p_sets), s_val, n_chart)
+    match_patterns(items, p_sets, p_scores)
 
-#main
+#main block
 #prepare() #transposing transactions - one time job
 
-s_array = [2000]
+s_array = [1000]
 resultsfile = os.path.join(DATADIR, RESULTSFILE)
 workbook = xlsxwriter.Workbook(resultsfile)
 

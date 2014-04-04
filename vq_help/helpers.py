@@ -27,7 +27,7 @@ def save_transactions(outfile, df):
     with open(outfile,'w') as out_f:
         writer = csv.writer(out_f, delimiter=',', quoting=csv.QUOTE_NONE)    
         # iterate through groups and combine codes into transactions
-        for name, group in df.groupby(['"facility_code"', 'account_number', 'service_date']):
+        for name, group in df.groupby(['"facility_code"', 'account_number']):#, 'service_date']):
             data = []
             # data.append(name)
             for i in group['ub92_revenue_code']:
@@ -85,15 +85,17 @@ def patterns_as_sets(indexfile):
         i_reader = csv.reader(i_file, delimiter="|")
 
         p_sets = []
+        p_scores = []        
         p_set = set()
         
         for line in i_reader:
             p_set = set(line[0].split(','))
+            p_score = int(line[1])
             if len(p_set) < 2:
                 continue
             p_sets.append(p_set)
-    
-    return p_sets
+            p_scores.append(p_score)
+    return [p_sets, p_scores]
 
 def prepare():
 
