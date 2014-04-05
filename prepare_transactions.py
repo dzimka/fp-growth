@@ -5,7 +5,7 @@ import itertools
 import pandas as pd
 import matplotlib.pyplot as plt
 import xlsxwriter
-import vq_help
+import vq_help.helpers as hlp
 
 DATADIR = "C:/Projects/code/fp-growth/datafiles"
 DATAFILE = "query_result_fixedEOF.csv"
@@ -69,7 +69,7 @@ def save_to_xls(dist, patterns, s_val, n_chart):
     bold = workbook.add_format({'bold': 1})
     
     # Add the worksheet data that the charts will refer to.
-    headings = ['Jaccard Score', 'Data']
+    headings = ['Jaccard Score', '# of transactions']
     print('Writing results to Sheet{0}'.format(n_chart))
     x_val = arange(0, 1.1, 0.1)
     y_val = dist
@@ -106,12 +106,34 @@ def save_to_xls(dist, patterns, s_val, n_chart):
     chart1.set_style(11)
     
     # Insert the chart into the worksheet (with an offset).
-    worksheet.insert_chart('D2', chart1, {'x_offset': 25, 'y_offset': 10})    
+    worksheet.insert_chart('G1', chart1, {'x_offset': 25, 'y_offset': 10})
+    
+    return worksheet
 
-def match_patterns(items, p_sets, p_scores):
+def save_data_to_xls(worksheet, curr_set, curr_support, df_top, row):
+
+    print('Writing sample transactions to Excel...')
+
+    global workbook
+    bold = workbook.add_format({'bold': 1})
+    
+    # Add the worksheet data that the charts will refer to.
+    headings = ['Transaction', 'Jaccard Idx', 'Support']
+  
+    worksheet.write_row('D1', headings, bold)
+    worksheet.write_row('D{0}'.format(row), [curr_set.__str__().strip('{}'), curr_support], bold)
+    row += 1
+    for i in range(len(df_top)):
+#        print(df_top.index[i])
+        worksheet.write_row('D{0}'.format(row), [df_top.index[i], round(df_top['jaccard'][i], 2), df_top['support'][i]])
+        row += 1
+    return row
+
+def match_patterns(worksheet, items, p_sets, p_scores):
+    row = 2
     s = pd.Series(items)
-    s = s[s < 1.0]
-    s = s[s >= 0.9]
+    s = s[s <= 1.0]
+    s = s[s >= 0.5]
     if len(s) == 0:
         print("Zero elements! Nothing to display...")
         return False
@@ -130,13 +152,11 @@ def match_patterns(items, p_sets, p_scores):
                 jaccards[p_set.__str__().strip('{}')] = curr_jaccard
                 supports[p_set.__str__().strip('{}')] = p_score
         data = {'jaccard': jaccards, 'support' : supports}
-#        patterns = pd.Series(jaccards)
-#        patterns.sort(kind='quicksort', ascending=False)
-#        print(patterns[0:5])
         df = pd.DataFrame(data)
         df.sort('jaccard', ascending=False, inplace=True)
         print(df[:][0:10])
         print('=========================')
+        row = save_data_to_xls(worksheet, curr_set, s[i], df[:][0:10], row)
     
 def do_all(s_val, n_chart):
 #    old way to display data
@@ -144,19 +164,19 @@ def do_all(s_val, n_chart):
 #    prob, p_val = calc()
 #    display(s_val, int(prob*100), p_val, n_chart)
 
-    run(s_val)
+    hlp.run(s_val)
     indexfile = os.path.join(DATADIR, INDEXFILE)
     transfile = os.path.join(DATADIR, TRANSFILE)
-    p_sets, p_scores = patterns_as_sets(indexfile)
+    p_sets, p_scores = hlp.patterns_as_sets(indexfile)
     j, items = calc_jaccard(transfile, p_sets)
     d = calc_distr(j)
-    save_to_xls(d, len(p_sets), s_val, n_chart)
-    match_patterns(items, p_sets, p_scores)
+    ws = save_to_xls(d, len(p_sets), s_val, n_chart)
+    match_patterns(ws, items, p_sets, p_scores)
 
 #main block
 #prepare() #transposing transactions - one time job
 
-s_array = [1000]
+s_array = [30000]
 resultsfile = os.path.join(DATADIR, RESULTSFILE)
 workbook = xlsxwriter.Workbook(resultsfile)
 
