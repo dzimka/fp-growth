@@ -109,7 +109,7 @@ def prepare():
     save_transactions(outfile, df)
 
 def run(s_val):
-    print("Running fp-growth...")
+    print("Running fp-growth with transaction support = {0}. ".format(s_val), end="")
     cmd_line = 'fpgrowth -s-{0} -f"," -k, -v"|%a|%i" datafiles/transactions.csv datafiles/fp-growth_results_del.txt'.format(s_val)
     retcode = call(cmd_line, shell=True)
     print("Completed with code {0}.".format(retcode))

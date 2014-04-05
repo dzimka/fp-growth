@@ -17,11 +17,10 @@ def calc_jaccard(transfile, p_sets):
 
     jaccards = []
     items = {}
-    print('Calculating Jaccard score...')
-    
+    print('Calculating Jaccard score... ')
     with open(transfile, "r") as t_file:
         t_reader = csv.reader(t_file, delimiter=',')
-        full_set = set([25, 50, 75])        
+        full_set = set([10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90])        
         
         for line in t_reader:
             curr_set = set(line)
@@ -31,7 +30,7 @@ def calc_jaccard(transfile, p_sets):
             # update progress
             curr_progress = set([round(len(jaccards)/1750)])
             if full_set.difference(curr_progress) != full_set:
-                print('Done {0} %'.format(round(len(jaccards)/1750)))
+                print('{0}%'.format(round(len(jaccards)/1750)))
                 full_set = full_set.difference(curr_progress)
             #----------------
             for p_set in p_sets:
@@ -41,16 +40,16 @@ def calc_jaccard(transfile, p_sets):
                         best_jaccard = curr_jaccard
             
             items[curr_set.__str__().strip('{}')] = best_jaccard
-                
             jaccards.append(best_jaccard)
-            #print("{} : {}".format(curr_set, best_jaccard))
+
+    print('100%!')
     print('Done for {0} transactions.'.format(len(jaccards)))
     return jaccards, items
     
 def calc_distr(jaccards):
     dist = list(range(11))
     dist[0:11] = [0 for i in range(11)]
-    print('Calculating distribution...')
+    print('Calculating distribution... ', end="")
     for score in jaccards:
         try:        
             idx = round(score*10)
@@ -112,7 +111,7 @@ def save_to_xls(dist, patterns, s_val, n_chart):
 
 def save_data_to_xls(worksheet, curr_set, curr_support, df_top, row):
 
-    print('Writing sample transactions to Excel...')
+#    print('Writing sample transactions to Excel...')
 
     global workbook
     bold = workbook.add_format({'bold': 1})
@@ -121,7 +120,7 @@ def save_data_to_xls(worksheet, curr_set, curr_support, df_top, row):
     headings = ['Transaction', 'Jaccard Idx', 'Support']
   
     worksheet.write_row('D1', headings, bold)
-    worksheet.write_row('D{0}'.format(row), [curr_set.__str__().strip('{}'), curr_support], bold)
+    worksheet.write_row('D{0}'.format(row), [curr_set.__str__().strip('{}'), round(curr_support, 2)], bold)
     row += 1
     for i in range(len(df_top)):
 #        print(df_top.index[i])
@@ -130,7 +129,11 @@ def save_data_to_xls(worksheet, curr_set, curr_support, df_top, row):
     return row
 
 def match_patterns(worksheet, items, p_sets, p_scores):
-    row = 2
+    
+    row = 2 #starting row to write to Excel
+    sample_t = 100  #number of sample transactions to write to Excel
+    sample_p = 20   # number of matching patterns for each sample transaction
+    
     s = pd.Series(items)
     s = s[s <= 1.0]
     s = s[s >= 0.5]
@@ -138,11 +141,9 @@ def match_patterns(worksheet, items, p_sets, p_scores):
         print("Zero elements! Nothing to display...")
         return False
     s.sort(kind='mergesort', ascending=False)
-    print("Printing top 10 transactions:")    
-    for i in range(10):
+    print("Writing top {0} transactions to the same sheet...".format(sample_t), end="")    
+    for i in range(sample_t):
         curr_set = set(s.index[i].replace("'", "").replace(" ", "").split(","))
-        print(curr_set, s[i])
-        print('-------------------------')
         jaccards = {}
         supports = {}
         for p_set, p_score in itertools.zip_longest(p_sets, p_scores):
@@ -154,9 +155,8 @@ def match_patterns(worksheet, items, p_sets, p_scores):
         data = {'jaccard': jaccards, 'support' : supports}
         df = pd.DataFrame(data)
         df.sort('jaccard', ascending=False, inplace=True)
-        print(df[:][0:10])
-        print('=========================')
-        row = save_data_to_xls(worksheet, curr_set, s[i], df[:][0:10], row)
+        row = save_data_to_xls(worksheet, curr_set, s[i], df[:][0:sample_p], row)
+    print("Done!")
     
 def do_all(s_val, n_chart):
 #    old way to display data
@@ -176,11 +176,12 @@ def do_all(s_val, n_chart):
 #main block
 #prepare() #transposing transactions - one time job
 
-s_array = [30000]
+s_array = [30000, 20000, 15000, 10000, 7500, 5000, 2500, 1000, 500]
 resultsfile = os.path.join(DATADIR, RESULTSFILE)
 workbook = xlsxwriter.Workbook(resultsfile)
 
 for i, s_val in enumerate(s_array):
     do_all(s_val, i)
+    print("=====================================")
 
 workbook.close()
